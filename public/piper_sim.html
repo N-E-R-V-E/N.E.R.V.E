@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Piper AM Robot Simulator v3 — Gripper Edition</title>
+<style>
+:root{
+  --bg:#1e1e1e; --panel:#06064c; --sb:#01011e; --sb2:#060021;
+  --bd:#000024; --bd2:#0c0151;
+  --acc:#e8a020; --acc-b:#2d78c8;
+  --txt:#d4d4d4; --txt2:#9d9d9d; --txt3:#5a5a5a;
+  --ok:#4caf50; --err:#f44336; --warn:#ff9800;
+  --mono:'Consolas','Courier New',monospace;
+  --sans:'Segoe UI',-apple-system,'Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px}
+body{display:flex;flex-direction:column}
+
+/* ── TITLE BAR ───────────────────────────────────────────────── */
+.titlebar{
+  height:30px;background:#323232;display:flex;align-items:center;
+  padding:0 10px;gap:8px;flex-shrink:0;user-select:none;
+}
+.tb-icon{
+  width:16px;height:16px;background:var(--acc);border-radius:3px;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:700;
+}
+.tb-title{font-size:12px;color:#bbb;flex:1;letter-spacing:.01em}
+.tb-winctrl{display:flex}
+.tbwc{
+  width:46px;height:30px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#aaa;cursor:pointer;transition:background .1s;
+}
+.tbwc:hover{background:rgba(255,255,255,.15)}
+.tbwc.x:hover{background:#e81123;color:#fff}
+
+/* ── MENU BAR ────────────────────────────────────────────────── */
+.menubar{
+  height:25px;background:#2a2a2a;border-bottom:1px solid #1a1a1a;
+  display:flex;align-items:center;flex-shrink:0;padding:0 4px;
+}
+.mi{
+  padding:3px 10px;font-size:12px;color:var(--txt);cursor:pointer;
+  border-radius:2px;transition:background .1s;
+}
+.mi:hover{background:rgba(255,255,255,.08)}
+
+/* ── TOOLBAR ─────────────────────────────────────────────────── */
+.toolbar{
+  height:40px;background:#272727;border-bottom:1px solid #1a1a1a;
+  display:flex;align-items:center;padding:0 8px;gap:5px;flex-shrink:0;
+}
+.btn{
+  height:26px;padding:0 11px;border-radius:3px;cursor:pointer;
+  font-size:12px;font-family:var(--sans);display:flex;align-items:center;
+  gap:5px;transition:all .1s;white-space:nowrap;flex-shrink:0;
+}
+.btn:active{filter:brightness(.88)}
+.btn-start{background:#2d6a28;border:1px solid #4a9e40;color:#bbf0bb}
+.btn-start:hover{background:#387d32}
+.btn-pause{background:#1c4870;border:1px solid #2d78c1;color:#aaccff}
+.btn-pause:hover{background:#235888}
+.btn-reset{background:transparent;border:1px solid var(--acc);color:var(--acc)}
+.btn-reset:hover{background:rgba(232,160,32,.1)}
+.btn-neutral{background:#363636;border:1px solid #555;color:var(--txt)}
+.btn-neutral:hover{background:#404040}
+.tb-sep{width:1px;height:22px;background:#444;flex-shrink:0;margin:0 3px}
+.sp-lbl{font-size:12px;color:var(--txt2);flex-shrink:0}
+#spd{
+  width:110px;cursor:pointer;height:4px;border-radius:2px;
+  -webkit-appearance:none;background:linear-gradient(to right,var(--acc) 0%,var(--acc) 50%,#444 50%,#444 100%);
+  accent-color:var(--acc);
+}
+#spd::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--acc);cursor:pointer;border:2px solid #f5c060;
+}
+#spd-out{font-size:12px;color:var(--acc);font-weight:700;min-width:30px}
+.tb-hint{margin-left:auto;font-size:11px;color:var(--txt3);font-family:var(--mono)}
+
+/* ── APP BODY ────────────────────────────────────────────────── */
+.app-body{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* ── VIEWPORT ────────────────────────────────────────────────── */
+#vp{flex:1;position:relative;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+
+/* ── LOADING OVERLAY ─────────────────────────────────────────── */
+#loading{
+  position:absolute;inset:0;background:#1a1a1a;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;gap:14px;
+}
+.ld-ring{
+  width:38px;height:38px;border:3px solid #333;
+  border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-title{font-size:17px;font-weight:600;color:var(--acc)}
+.ld-sub{font-size:11px;color:var(--txt3)}
+#lmsg{font-size:12px;color:var(--txt2)}
+.ld-bw{width:200px;height:3px;background:#333;border-radius:2px;overflow:hidden}
+#lbar{height:100%;background:var(--acc);width:0%;transition:width .2s}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
+#sidebar{
+  width:336px;background:var(--sb);border-left:1px solid var(--acc);
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+}
+.stabs{
+  display:flex;background:#202020;border-bottom:1px solid #1a1a1a;
+  flex-shrink:0;
+}
+.stab{
+  padding:8px 13px;font-size:12px;color:var(--txt2);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;
+  flex-shrink:0;
+}
+.stab:hover{color:var(--txt)}
+.stab.act{color:var(--acc);border-bottom-color:var(--acc);background:var(--sb)}
+.stab-more{padding:8px 10px;color:var(--txt3);font-size:13px}
+.spane{display:none;flex-direction:column;overflow-y:auto;flex:1}
+.spane.act{display:flex}
+.spane::-webkit-scrollbar{width:6px}
+.spane::-webkit-scrollbar-thumb{background:#484848;border-radius:3px}
+.spane::-webkit-scrollbar-track{background:var(--sb)}
+
+/* section */
+.ssec{border-bottom:1px solid #1e1e1e;padding-bottom:5px;flex-shrink:0}
+.sshd{
+  padding:7px 10px 5px;font-size:11px;font-weight:700;color:var(--txt2);
+  letter-spacing:.04em;display:flex;align-items:center;gap:5px;cursor:pointer;
+  text-transform:uppercase;
+}
+.sshd:hover{color:var(--txt)}
+.sschev{color:var(--acc);font-size:9px}
+.ssnote{padding:1px 10px 6px;font-size:10px;color:#806820;font-style:italic}
+
+/* joint row */
+.jrow{display:flex;align-items:center;padding:3px 8px 3px 10px;gap:6px}
+.jlbl{font-size:12px;color:var(--txt2);width:44px;flex-shrink:0}
+.jsl-wrap{flex:1;position:relative}
+.jsl{
+  -webkit-appearance:none;width:100%;height:4px;border-radius:2px;
+  outline:none;cursor:pointer;
+  background:linear-gradient(to right,var(--acc) 50%,#3c3c3c 50%);
+}
+.jsl::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--acc);cursor:pointer;border:2px solid #f0c060;
+  box-shadow:0 0 5px rgba(232,160,32,.4);
+}
+.jval{font-size:11.5px;color:var(--txt);font-family:var(--mono);min-width:58px;text-align:right;flex-shrink:0}
+.jspin{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.jsp{
+  width:14px;height:10px;background:#3a3a3a;border:1px solid #555;
+  color:#888;font-size:7px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;line-height:1;transition:background .1s;
+}
+.jsp:hover{background:#4a4a4a;color:var(--acc)}
+
+/* gripper */
+.gsl-row{padding:5px 10px;display:flex;align-items:center;gap:8px}
+.glbl{font-size:11px;color:var(--txt3);flex-shrink:0}
+.gsl-wrap{flex:1}
+.gsl{
+  -webkit-appearance:none;width:100%;height:4px;border-radius:2px;
+  outline:none;cursor:pointer;
+  background:linear-gradient(to right,#3c3c3c 0%,var(--acc) 0%);
+}
+.gsl::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--acc);cursor:pointer;border:2px solid #f0c060;
+}
+.gpct{font-size:12px;color:var(--acc);font-weight:700;min-width:36px;text-align:right;flex-shrink:0}
+.gbtns{padding:4px 10px;display:flex;gap:5px}
+.gbtn{
+  flex:1;height:29px;border:none;border-radius:3px;cursor:pointer;
+  font-size:12px;font-family:var(--sans);font-weight:600;transition:all .1s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.gbtn-close{background:#b73228;color:#fff}
+.gbtn-close:hover{background:#cc3a2e}
+.gbtn-half{background:#404040;color:var(--txt);border:1px solid #555}
+.gbtn-half:hover{background:#4c4c4c}
+.gbtn-open{background:#259d55;color:#fff}
+.gbtn-open:hover{background:#2dbb66}
+.gfing{padding:3px 10px 7px;font-size:11px;color:var(--txt3);font-family:var(--mono)}
+
+/* quick actions */
+.qbtns{padding:6px 10px;display:flex;gap:8px;flex-wrap:wrap}
+.qbtn{
+  padding:5px 12px;border-radius:3px;border:1px solid #555;background:#383838;
+  color:var(--txt);font-family:var(--sans);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all .1s;
+}
+.qbtn:hover{background:#424242;border-color:#777}
+
+/* IK tab */
+.ik-row{padding:3px 10px;display:flex;align-items:center;gap:7px}
+.ik-lbl{font-size:12px;color:var(--txt2);width:52px;flex-shrink:0}
+.ik-sl{
+  flex:1;-webkit-appearance:none;height:4px;background:#3c3c3c;
+  border-radius:2px;outline:none;cursor:pointer;
+}
+.ik-sl::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+  background:#4a9eda;cursor:pointer;
+}
+.ik-v{font-size:11px;color:#4a9eda;min-width:42px;text-align:right;font-family:var(--mono)}
+.ik-res{
+  margin:8px 10px;padding:9px;background:#1a1a1a;border:1px solid var(--bd);
+  border-radius:3px;font-size:11px;color:var(--txt2);font-family:var(--mono);line-height:1.9;
+}
+.ik-sbtn{
+  display:block;margin:5px 10px;padding:8px;background:#2a4228;border:1px solid #3d6035;
+  color:#aaffa0;border-radius:3px;cursor:pointer;font-size:12px;font-family:var(--sans);
+  width:calc(100% - 20px);text-align:center;transition:all .1s;
+}
+.ik-sbtn:hover{background:#336030}
+.ik-tbtn{
+  display:block;margin:4px 10px;padding:7px;background:#302210;border:1px solid #5a4010;
+  color:#ffcc55;border-radius:3px;cursor:pointer;font-size:12px;font-family:var(--sans);
+  width:calc(100% - 20px);text-align:center;transition:all .1s;
+}
+.ik-tbtn:hover{background:#3a2a12}
+
+/* Controller tab */
+.ctrl-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:8px 10px}
+.ctrl-btn{
+  padding:9px 5px;border:1px solid var(--bd);background:#363636;color:var(--txt2);
+  border-radius:3px;cursor:pointer;font-size:11px;font-family:var(--sans);
+  transition:all .12s;text-align:center;
+}
+.ctrl-btn:hover,.ctrl-btn.act{border-color:var(--acc);color:var(--acc);background:rgba(232,160,32,.07)}
+
+/* Trajectory tab */
+.traj-empty{padding:20px 10px;text-align:center;color:var(--txt3);font-size:12px;line-height:1.8}
+.traj-wp{
+  margin:4px 10px;padding:6px 9px;background:#1e1e1e;border:1px solid var(--bd);
+  border-radius:3px;font-size:11px;color:var(--txt2);font-family:var(--mono);line-height:1.7;
+}
+.traj-wp b{color:var(--acc)}
+.traj-actions{padding:6px 10px;display:flex;gap:6px}
+.traj-btn{
+  flex:1;padding:6px;border-radius:3px;border:1px solid #555;background:#383838;
+  color:var(--txt);font-size:12px;font-family:var(--sans);cursor:pointer;transition:all .1s;
+}
+.traj-btn:hover{background:#424242}
+.traj-btn.run{border-color:#3d8a35;color:var(--ok);background:#1e3020}
+
+/* ── BOTTOM AREA ─────────────────────────────────────────────── */
+.bottom-area{
+  height:148px;display:flex;border-top:1px solid #181818;flex-shrink:0;
+}
+
+/* Console */
+.console-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--bd)}
+.console-hdr{
+  height:23px;background:#222;border-bottom:1px solid #181818;
+  display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;
+}
+.console-title{font-size:12px;color:var(--txt2);font-weight:600}
+.console-badge{
+  font-size:9px;background:var(--acc);color:#000;font-weight:700;
+  min-width:16px;height:15px;border-radius:2px;display:flex;align-items:center;
+  justify-content:center;padding:0 3px;
+}
+.con-out{
+  flex:1;overflow-y:auto;background:#0d0d0d;padding:3px 8px;
+  font-family:var(--mono);font-size:12px;color:#4ccc4c;line-height:1.7;
+}
+.con-out::-webkit-scrollbar{width:5px}
+.con-out::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+.con-in{
+  display:flex;align-items:center;border-top:1px solid #1e1e1e;
+  background:#0a0a0a;padding:2px 8px;gap:6px;flex-shrink:0;height:22px;
+}
+.con-prompt{font-size:12px;color:#4ccc4c;font-family:var(--mono);flex-shrink:0}
+#con-input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--txt);font-family:var(--mono);font-size:12px;
+  caret-color:var(--acc);
+}
+#con-input::placeholder{color:var(--txt3);font-size:11px}
+
+/* Telemetry */
+.telem-panel{
+  width:652px;background:#181818;display:flex;flex-direction:column;
+  flex-shrink:0;
+}
+.tel-row{display:grid;flex:1;overflow:hidden}
+.tel-row-1{grid-template-columns:repeat(7,1fr);border-bottom:1px solid #222}
+.tel-row-2{grid-template-columns:repeat(6,1fr)}
+.tel-cell{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:5px 8px;border-right:1px solid #222;overflow:hidden;
+}
+.tel-cell:last-child{border-right:none}
+.tel-lbl{font-size:10px;color:#5c5c5c;margin-bottom:1px;letter-spacing:.04em}
+.tel-val{font-size:20px;color:var(--acc);font-family:var(--mono);line-height:1.1;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ TITLE BAR ════════════════════════════ -->
+<div class="titlebar">
+  <div class="tb-icon">P</div>
+  <div class="tb-title">Piper AM Robot Simulator v3 &mdash; Gripper Edition</div>
+  <div class="tb-winctrl">
+    <div class="tbwc">&#8212;</div>
+    <div class="tbwc">&#9633;</div>
+    <div class="tbwc x">&#10005;</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MENU BAR ═════════════════════════════ -->
+<div class="menubar">
+  <div class="mi">Simulation</div>
+  <div class="mi">View</div>
+</div>
+
+<!-- ═══════════════════════════ TOOLBAR ══════════════════════════════ -->
+<div class="toolbar">
+  <button class="btn btn-start" id="btn-start" onclick="simStart()">&#9654; Start</button>
+  <button class="btn btn-pause" id="btn-pause" onclick="simPause()">&#10074;&#10074; Pause</button>
+  <button class="btn btn-reset" onclick="simReset()">&#8635; Reset</button>
+  <button class="btn btn-neutral" onclick="simHome()">&#8962; Home</button>
+  <div class="tb-sep"></div>
+  <button class="btn btn-neutral" id="btn-import" onclick="document.getElementById('fi-inp').click()">
+    &#9632; Import STL
+  </button>
+  <input type="file" id="fi-inp" multiple accept=".stl,.STL" style="display:none">
+  <div class="tb-sep"></div>
+  <span class="sp-lbl">Speed:</span>
+  <input type="range" id="spd" min="0.1" max="3" step="0.05" value="1">
+  <span id="spd-out">1.0x</span>
+  <div class="tb-hint">Ctrl+drag=camera &nbsp;|&nbsp; drag=FK grab</div>
+</div>
+
+<!-- ══════════════════════   ════ APP BODY ═  ═══════════════════════════ -->
+<div class="app-body">
+  <!-- 3D VIEWPORT -->
+  <div id="vp">
+    <canvas id="c"></canvas>
+
+    <!-- Loading overlay -->
+    <div id="loading">
+      <div class="ld-ring"></div>
+      <div class="ld-title">Piper AM Robot Simulator</div>
+      <div class="ld-sub">v3 &mdash; Gripper Edition</div>
+      <div id="lmsg">Initialising...</div>
+      <div class="ld-bw"><div id="lbar"></div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SIDEBAR ══════════════════════════════ -->
+  <div id="sidebar">
+    <!-- Tabs -->
+    <div class="stabs">
+      <div class="stab act" data-t="joints">Joints</div>
+      <div class="stab" data-t="ik">IK</div>
+      <div class="stab" data-t="trajectory">Trajectory</div>
+      <div class="stab" data-t="controller">Controller</div>
+      <div class="stab stab-more">&gt;</div>
+    </div>
+
+    <!-- JOINTS TAB ──────────────────────────────── -->
+    <div class="spane act" data-p="joints">
+      <!-- ARM JOINTS section -->
+      <div class="ssec">
+        <div class="sshd">
+          <span class="sschev">&#9660;</span>
+          ARM JOINTS &mdash; LIVE CONTROL
+        </div>
+        <div class="ssnote">Move sliders to drive joints live &mdash; changes apply immediately</div>
+        <div id="joint-sliders"></div>
+      </div>
+
+      <!-- GRIPPER section -->
+      <div class="ssec">
+        <div class="sshd">
+          <span class="sschev">&#9660;</span>
+          GRIPPER &mdash; END EFFECTOR
+        </div>
+        <div class="gsl-row">
+          <span class="glbl">Closed</span>
+          <div class="gsl-wrap">
+            <input type="range" class="gsl" id="g-sl" min="0" max="100" step="1" value="0">
+          </div>
+          <span class="glbl">Open</span>
+          <span class="gpct" id="g-out">0 %</span>
+        </div>
+        <div class="gbtns">
+          <button class="gbtn gbtn-close" onclick="setGripper(0)">&#8212; Close</button>
+          <button class="gbtn gbtn-half" onclick="setGripper(50)">&#189; Half</button>
+          <button class="gbtn gbtn-open" onclick="setGripper(100)">&#8212; Open</button>
+        </div>
+        <div class="gfing" id="gfing">Finger L: +0.0 mm &nbsp;&nbsp; Finger R: -0.0 mm</div>
+      </div>
+
+      <!-- QUICK ACTIONS section -->
+      <div class="ssec">
+        <div class="sshd">
+          <span class="sschev">&#9660;</span>
+          QUICK ACTIONS
+        </div>
+        <div class="qbtns">
+          <button class="qbtn" onclick="simHome()">&#8962; Go Home</button>
+          <button class="qbtn" onclick="clearWaypoints()">Clear Traj</button>
+          <button class="qbtn" onclick="loadAllMeshes()">Reload Meshes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IK TAB ──────────────────────────────────── -->
+    <div class="spane" data-p="ik">
+      <div class="ssec">
+        <div class="sshd"><span class="sschev">&#9660;</span>IK TARGET (metres)</div>
+        <div class="ik-row"><span class="ik-lbl">X</span><input type="range" class="ik-sl" id="ik-x" min="-0.45" max="0.55" step="0.002" value="0.30"><span class="ik-v" id="ik-x-v">0.300</span></div>
+        <div class="ik-row"><span class="ik-lbl">Y</span><input type="range" class="ik-sl" id="ik-y" min="-0.40" max="0.40" step="0.002" value="0.00"><span class="ik-v" id="ik-y-v">0.000</span></div>
+        <div class="ik-row"><span class="ik-lbl">Z</span><input type="range" class="ik-sl" id="ik-z" min="0.02" max="0.65" step="0.002" value="0.35"><span class="ik-v" id="ik-z-v">0.350</span></div>
+        <div style="margin-top:6px">
+          <div class="ik-row"><span class="ik-lbl">Iters</span><input type="range" class="ik-sl" id="ik-iters" min="10" max="800" step="10" value="300"><span class="ik-v" id="ik-iters-v">300</span></div>
+          <div class="ik-row"><span class="ik-lbl">Tol mm</span><input type="range" class="ik-sl" id="ik-tol" min="0.1" max="20" step="0.1" value="1.0"><span class="ik-v" id="ik-tol-v">1.0</span></div>
+          <div class="ik-row"><span class="ik-lbl">Alpha</span><input type="range" class="ik-sl" id="ik-alpha" min="0.05" max="1.0" step="0.05" value="0.5"><span class="ik-v" id="ik-alpha-v">0.50</span></div>
+        </div>
+        <button class="ik-sbtn" id="ik-go">&#9654; SOLVE IK &amp; MOVE</button>
+        <div class="ik-res" id="ik-res">Set target then press SOLVE.</div>
+      </div>
+      <div class="ssec">
+        <div class="sshd"><span class="sschev">&#9660;</span>SELF-TEST</div>
+        <button class="ik-tbtn" id="ik-test">&#9654; RUN IK TESTS</button>
+      </div>
+    </div>
+
+    <!-- TRAJECTORY TAB ──────────────────────────── -->
+    <div class="spane" data-p="trajectory">
+      <div class="ssec">
+        <div class="sshd"><span class="sschev">&#9660;</span>WAYPOINTS</div>
+        <div class="traj-actions">
+          <button class="traj-btn" onclick="addWaypoint()">+ Add Waypoint</button>
+          <button class="traj-btn run" onclick="runWaypoints()">&#9654; Run</button>
+          <button class="traj-btn" onclick="clearWaypoints()">Clear</button>
+        </div>
+        <div id="wp-list"><div class="traj-empty">No waypoints saved.<br>Press "+ Add Waypoint" to record current position.</div></div>
+      </div>
+    </div>
+
+    <!-- CONTROLLER TAB ──────────────────────────── -->
+    <div class="spane" data-p="controller">
+      <div class="ssec">
+        <div class="sshd"><span class="sschev">&#9660;</span>MOTION CONTROLLER</div>
+        <div class="ctrl-grid" id="ctrl-grid">
+          <button class="ctrl-btn act" data-ctrl="home">Home<br><span style="font-size:9px;color:var(--txt3)">Static</span></button>
+          <button class="ctrl-btn" data-ctrl="sine">Sine<br><span style="font-size:9px;color:var(--txt3)">Wave</span></button>
+          <button class="ctrl-btn" data-ctrl="circle">Circle<br><span style="font-size:9px;color:var(--txt3)">XZ plane</span></button>
+          <button class="ctrl-btn" data-ctrl="demo">Demo<br><span style="font-size:9px;color:var(--txt3)">Sequence</span></button>
+          <button class="ctrl-btn" data-ctrl="traj">Traj<br><span style="font-size:9px;color:var(--txt3)">Waypoints</span></button>
+          <button class="ctrl-btn" data-ctrl="track">Track<br><span style="font-size:9px;color:var(--txt3)">IK Track</span></button>
+        </div>
+      </div>
+      <div class="ssec">
+        <div class="sshd"><span class="sschev">&#9660;</span>SIMULATION SPEED</div>
+        <div style="padding:6px 10px;display:flex;align-items:center;gap:10px">
+          <input type="range" id="spd2" min="0.1" max="3" step="0.05" value="1"
+            style="-webkit-appearance:none;flex:1;height:4px;border-radius:2px;background:#3c3c3c;accent-color:var(--acc);cursor:pointer">
+          <span id="spd2-out" style="font-size:13px;color:var(--acc);font-weight:700;min-width:36px;font-family:var(--mono)">1.0x</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ BOTTOM ═══════════════════════════════ -->
+<div class="bottom-area">
+  <!-- CONSOLE -->
+  <div class="console-panel">
+    <div class="console-hdr">
+      <span class="console-title">Console</span>
+      <div class="console-badge" id="log-badge">0</div>
+    </div>
+    <div class="con-out" id="tlog"></div>
+    <div class="con-in">
+      <span class="con-prompt">&gt;</span>
+      <input type="text" id="con-input" placeholder="type command... (H for help)" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <!-- TELEMETRY -->
+  <div class="telem-panel">
+    <div class="tel-row tel-row-1">
+      <div class="tel-cell"><div class="tel-lbl">J1</div><div class="tel-val" id="t-j1">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">J2</div><div class="tel-val" id="t-j2">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">J3</div><div class="tel-val" id="t-j3">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">J4</div><div class="tel-val" id="t-j4">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">J5</div><div class="tel-val" id="t-j5">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">J6</div><div class="tel-val" id="t-j6">+0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">EE X</div><div class="tel-val" id="t-ex">0.0000</div></div>
+    </div>
+    <div class="tel-row tel-row-2">
+      <div class="tel-cell"><div class="tel-lbl">EE Y</div><div class="tel-val" id="t-ey">0.0000</div></div>
+      <div class="tel-cell"><div class="tel-lbl">EE Z</div><div class="tel-val" id="t-ez">0.0000</div></div>
+      <div class="tel-cell"><div class="tel-lbl">Roll</div><div class="tel-val" id="t-roll">0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">Pitch</div><div class="tel-val" id="t-pitch">0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">Yaw</div><div class="tel-val" id="t-yaw">0.0</div></div>
+      <div class="tel-cell"><div class="tel-lbl">Time</div><div class="tel-val" id="t-time">0.00 s</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ═════════════════════════════════   ═════════════════════════════════
+//  PIPER AM ROBOT SIMULATOR v3 — Gripper Edition
+//  by N.E.R.V.E
+// ═══════════════════════════════════════════════════════════════════
+
+const CDN_BASE = 'https://raw.githubusercontent.com/ANANDHUAJITH/CDN/main/meshes/';
+
+// ── URDF joint chain ──────────────────────────────────────────────
+const JOINTS = [
+  {n:'joint1', xyz:[0,0,0.123],            rpy:[0,0,0],                  ax:[0,0,1], lo:-2.618,  hi:2.618 },
+  {n:'joint2', xyz:[0,0,0],                rpy:[1.5708,-0.1359,-3.1416], ax:[0,0,1], lo:0,       hi:3.14  },
+  {n:'joint3', xyz:[0.28503,0,0],          rpy:[0,0,-1.7939],            ax:[0,0,1], lo:-2.967,  hi:0     },
+  {n:'joint4', xyz:[-0.021984,-0.25075,0], rpy:[1.5708,0,0],             ax:[0,0,1], lo:-1.745,  hi:1.745 },
+  {n:'joint5', xyz:[0,0,0],               rpy:[-1.5708,0,0],             ax:[0,0,1], lo:-1.22,   hi:1.22  },
+  {n:'joint6', xyz:[8.826e-5,-0.091,0],   rpy:[1.5708,0,0],              ax:[0,0,1], lo:-2.0944, hi:2.0944},
+  {n:'grip',   xyz:[0,0,0],               rpy:[0,0,0],                   ax:[0,0,1], lo:0, hi:0, fixed:true},
+];
+const LINK_ORDER   = ['base_link','link1','link2','link3','link4','link5','link6','gripper_base'];
+const FINGER_LINKS = ['link7','link8'];
+const ALL_STL      = ['base_link','link1','link2','link3','link4','link5','link6','gripper_base','link7','link8'];
+const HOME         = [0, 0.5, -1.2, 0, 0.8, 0];
+
+// ── State ─────────────────────────────────────────────────────────
+let angles   = [...HOME];
+let gOpenMM  = 0;
+let speed    = 1;
+let simT     = 0, simStep = 0;
+let ctrlName = 'home', ctrl = null;
+let manual   = false;
+let ikOk     = false, ikErr = 0;
+let eStopped = false;
+let simPaused = false;
+const waypoints = [];
+let csvLog = [];
+
+// ── FK Math ───────────────────────────────────────────────────────
+const M4 = () => new THREE.Matrix4();
+const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
+
+function urdfMat(xyz, rpy) {
+  const [x,y,z] = xyz, [r,p,yw] = rpy;
+  return M4().multiplyMatrices(
+    M4().makeTranslation(x,y,z),
+    M4().multiplyMatrices(M4().makeRotationZ(yw), M4().multiplyMatrices(M4().makeRotationY(p), M4().makeRotationX(r)))
+  );
+}
+function rotMat(ax,theta){
+  return M4().makeRotationFromQuaternion(new THREE.Quaternion().setFromAxisAngle(V3(...ax).normalize(),theta));
+}
+function fk(ang){
+  const mats=[]; let T=M4(); mats.push(T.clone());
+  for(let i=0;i<JOINTS.length;i++){
+    const j=JOINTS[i];
+    T=M4().multiplyMatrices(T,urdfMat(j.xyz,j.rpy));
+    if(!j.fixed) T=M4().multiplyMatrices(T,rotMat(j.ax,ang[i]??0));
+    mats.push(T.clone());
+  }
+  return mats;
+}
+function fkEE(ang){
+  const mats=fk(ang);
+  const gbMat=mats[7];
+  const[W7,W8]=fingerMats(gbMat,gOpenMM);
+  const p7=new THREE.Vector3().setFromMatrixPosition(W7);
+  const p8=new THREE.Vector3().setFromMatrixPosition(W8);
+  const pos=new THREE.Vector3().addVectors(p7,p8).multiplyScalar(0.5);
+  const q=new THREE.Quaternion();
+  const s=new THREE.Vector3();
+  gbMat.decompose(new THREE.Vector3(),q,s);
+  return {pos,q,mats};
+}
+function fingerMats(gbMat,openMM){
+  const d=openMM*0.001;
+  const To7=urdfMat([0,0,0.1358],[1.5708,0,0]);
+  const To8=urdfMat([0,0,0.1358],[1.5708,0,-3.1416]);
+  const W7=M4().multiplyMatrices(gbMat,M4().multiplyMatrices(To7,M4().makeTranslation(0,0,d)));
+  const W8=M4().multiplyMatrices(gbMat,M4().multiplyMatrices(To8,M4().makeTranslation(0,0,d)));
+  return [W7,W8];
+}
+
+// ── CCD IK ────────────────────────────────────────────────────────
+function solveIK(target,maxIter,tolM,alpha){
+  maxIter=maxIter||300; tolM=tolM||0.001; alpha=alpha||0.5;
+  const tgt=V3(...target); let ang=[...angles],err=Infinity;
+  for(let it=0;it<maxIter;it++){
+    const {pos:ee}=fkEE(ang); err=ee.distanceTo(tgt);
+    if(err<tolM) break;
+    for(let j=JOINTS.length-1;j>=0;j--){
+      if(JOINTS[j].fixed) continue;
+      let Tj=M4();
+      for(let k=0;k<j;k++){
+        const jk=JOINTS[k];
+        Tj=M4().multiplyMatrices(Tj,urdfMat(jk.xyz,jk.rpy));
+        if(!jk.fixed) Tj=M4().multiplyMatrices(Tj,rotMat(jk.ax,ang[k]));
+      }
+      Tj=M4().multiplyMatrices(Tj,urdfMat(JOINTS[j].xyz,JOINTS[j].rpy));
+      const jp=new THREE.Vector3().setFromMatrixPosition(Tj);
+      const wa=V3(...JOINTS[j].ax).applyMatrix4(M4().extractRotation(Tj)).normalize();
+      const {pos:ee2}=fkEE(ang);
+      const proj=v=>{const dp=v.dot(wa);return v.clone().sub(wa.clone().multiplyScalar(dp))};
+      const pe=proj(new THREE.Vector3().subVectors(ee2,jp));
+      const pt=proj(new THREE.Vector3().subVectors(tgt,jp));
+      if(pe.lengthSq()<1e-10||pt.lengthSq()<1e-10) continue;
+      const pen=pe.normalize(),ptn=pt.normalize();
+      const sin=wa.dot(new THREE.Vector3().crossVectors(pen,ptn));
+      ang[j]=Math.max(JOINTS[j].lo,Math.min(JOINTS[j].hi,ang[j]+Math.atan2(sin,pen.dot(ptn))*alpha));
+    }
+  }
+  const {pos:fe}=fkEE(ang); err=fe.distanceTo(tgt);
+  return {ang,ok:err<tolM*10,err};
+}
+function getIKParams(){
+  return {
+    iters:parseInt(document.getElementById('ik-iters').value)||300,
+    tolM:(parseFloat(document.getElementById('ik-tol').value)||1.0)*0.001,
+    alpha:parseFloat(document.getElementById('ik-alpha').value)||0.5
+  };
+}
+
+// ── Controllers ───────────────────────────────────────────────────
+class HomeC   { tick(){ return[...HOME] } reset(){} }
+class SineC {
+  A=[.5,.4,.35,.45,.4,.7]; F=[.28,.18,.22,.35,.32,.48]; PH=[0,.5,1,1.5,2,2.5];
+  tick(t){ return JOINTS.slice(0,6).map(({lo,hi},i)=>{
+    const mid=(lo+hi)/2,amp=this.A[i]*(hi-lo)/2;
+    return Math.max(lo,Math.min(hi,mid+amp*Math.sin(2*Math.PI*this.F[i]*t+this.PH[i])));
+  })} reset(){}
+}
+class CircleC {
+  tick(t){const{iters,tolM,alpha}=getIKParams();const a=2*Math.PI*.18*t;return solveIK([.25+.09*Math.cos(a),.09*Math.sin(a),.32],iters,tolM,alpha).ang;} reset(){}
+}
+class DemoC {
+  WP=[[.30,.00,.35],[.25,.15,.28],[.20,-.12,.32],[.22,.00,.42],[.30,.10,.20],[.30,-.10,.20]];
+  i=0;t0=0;cur=[...HOME];
+  tick(t){
+    const{iters,tolM,alpha}=getIKParams();const wp=this.WP[this.i];
+    const{ang,ok,err}=solveIK(wp,iters,tolM,alpha);if(ok)this.cur=ang;
+    if(t-this.t0>=3){this.i=(this.i+1)%this.WP.length;this.t0=t;
+      tl(`[WP${this.i}] [${wp.map(v=>v.toFixed(2)).join(',')}] err=${err.toFixed(3)}m`)}
+    return this.cur;
+  } reset(){this.i=0;this.t0=0}
+}
+class TrajC {
+  TR=[{a:[0,.5,-1.2,0,.8,0],d:2},{a:[1,1,-1.5,.5,.5,1],d:3},{a:[0,1.5,-2,0,.8,0],d:3},{a:[-1,.5,-1.2,-.5,.5,-1],d:3}];
+  s=0;t0=0;
+  tick(t){if(t-this.t0>=this.TR[this.s].d){this.s=(this.s+1)%this.TR.length;this.t0=t}return this.TR[this.s].a;}
+  reset(){this.s=0;this.t0=0}
+}
+class TrackC {
+  tick(t){const{iters,tolM,alpha}=getIKParams();return solveIK([.26+.10*Math.sin(.3*t),.08*Math.sin(.6*t),.30+.08*Math.sin(.3*t+Math.PI/2)],iters,tolM,alpha).ang;} reset(){}
+}
+const CTRLS={home:HomeC,sine:SineC,circle:CircleC,demo:DemoC,traj:TrajC,track:TrackC};
+
+function setCtrl(name){
+  ctrlName=name; ctrl=new CTRLS[name](); ctrl.reset(); manual=false;
+  document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.toggle('act',b.dataset.ctrl===name));
+  tl(`Controller -> ${name.toUpperCase()}`);
+}
+
+// ── Simulation controls ───────────────────────────────────────────
+function simStart(){
+  if(eStopped){eStopped=false;}
+  simPaused=false;
+  if(!ctrl) setCtrl('home');
+  manual=false;
+  tl('Simulation started');
+}
+function simPause(){
+  simPaused=!simPaused;
+  document.getElementById('btn-pause').textContent=simPaused?'  Resume':'|| Pause';
+  tl(simPaused?'Simulation paused':'Simulation resumed');
+}
+function simReset(){
+  angles=[...HOME];gOpenMM=0;simT=0;simStep=0;manual=false;eStopped=false;simPaused=false;
+  setCtrl('home'); tl('Simulation reset to home');
+}
+function simHome(){
+  angles=[...HOME];gOpenMM=0;manual=false;setCtrl('home');
+  tl('Moved to home position');
+}
+function setGripper(pct){
+  gOpenMM=(pct/100)*35;
+  document.getElementById('g-sl').value=pct;
+  updateGripperUI(pct);
+}
+function updateGripperUI(pct){
+  document.getElementById('g-out').textContent=Math.round(pct)+' %';
+  const gsl=document.getElementById('g-sl');
+  gsl.style.background=`linear-gradient(to right,var(--acc) ${pct}%,#3c3c3c ${pct}%)`;
+  document.getElementById('gfing').textContent=
+    `Finger L: +${(gOpenMM).toFixed(1)} mm   Finger R: -${(gOpenMM).toFixed(1)} mm`;
+}
+function addWaypoint(){
+  const {pos}=fkEE(angles);
+  waypoints.push({angles:[...angles],gOpenMM,pos:{x:pos.x,y:pos.y,z:pos.z}});
+  tl(`Waypoint ${waypoints.length} saved [${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}, ${pos.z.toFixed(3)}]`);
+  renderWaypoints();
+}
+function clearWaypoints(){
+  waypoints.length=0; renderWaypoints();
+  tl('Waypoints cleared');
+}
+function renderWaypoints(){
+  const el=document.getElementById('wp-list');
+  if(!waypoints.length){el.innerHTML='<div class="traj-empty">No waypoints saved.<br>Press "+ Add Waypoint" to record current position.</div>';return;}
+  el.innerHTML=waypoints.map((wp,i)=>`
+    <div class="traj-wp">
+      <b>WP${i+1}</b> &nbsp; X=${wp.pos.x.toFixed(3)} Y=${wp.pos.y.toFixed(3)} Z=${wp.pos.z.toFixed(3)}<br>
+      Grip: ${wp.gOpenMM.toFixed(1)}mm &nbsp; J=[${wp.angles.map(a=>(a*180/Math.PI).toFixed(0)).join(',')}]
+    </div>
+  `).join('');
+}
+function runWaypoints(){
+  if(!waypoints.length){tl('No waypoints to run');return;}
+  let i=0;
+  function step(){
+    if(i>=waypoints.length){tl('Waypoint sequence complete');return;}
+    const wp=waypoints[i];
+    angles=[...wp.angles]; gOpenMM=wp.gOpenMM;
+    updateGripperUI(gOpenMM/35*100);
+    tl(`Running WP${i+1}`); i++;
+    setTimeout(step,1800);
+  }
+  manual=true; step();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════════════
+let renderer,scene,camera;
+let gridH,axesH,eeMarker,ikMarker;
+const linkNodes={},stlMeshes={};
+
+function initScene(){
+  const canvas=document.getElementById('c');
+  const vp=document.getElementById('vp');
+
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x1a1a2a);
+  renderer.setSize(vp.clientWidth,vp.clientHeight);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.3;
+
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0x1a1a2a,5,14);
+  camera=new THREE.PerspectiveCamera(45,vp.clientWidth/vp.clientHeight,0.005,20);
+
+  scene.add(new THREE.HemisphereLight(0x334466,0x101420,0.8));
+  const key=new THREE.DirectionalLight(0xffe8d0,2.5);
+  key.position.set(0.8,1.8,1.0);key.castShadow=true;
+  key.shadow.mapSize.set(1024,1024);
+  key.shadow.camera.left=-0.8;key.shadow.camera.right=0.8;
+  key.shadow.camera.top=0.8;key.shadow.camera.bottom=-0.1;
+  key.shadow.camera.near=0.1;key.shadow.camera.far=5;key.shadow.bias=-0.001;
+  scene.add(key);
+  const fill=new THREE.DirectionalLight(0x8ab4ff,0.9);fill.position.set(-1.2,0.8,0.4);scene.add(fill);
+  const rim=new THREE.DirectionalLight(0x60a8e0,0.5);rim.position.set(0.3,0.5,-1.5);scene.add(rim);
+
+  const ground=new THREE.Mesh(
+    new THREE.PlaneGeometry(6,6),
+    new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.9,metalness:0.05})
+  );
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+
+  gridH=new THREE.GridHelper(2.0,40,0x303030,0x282828);
+  gridH.position.y=0.001;scene.add(gridH);
+
+  axesH=new THREE.AxesHelper(0.22);axesH.position.y=0.002;scene.add(axesH);
+
+  eeMarker=new THREE.Mesh(
+    new THREE.SphereGeometry(0.008,10,8),
+    new THREE.MeshStandardMaterial({color:0xff6600,emissive:0xff4400,emissiveIntensity:.7,roughness:.2,metalness:.5})
+  );
+  scene.add(eeMarker);
+
+  ikMarker=new THREE.Group();
+  ikMarker.add(new THREE.Mesh(new THREE.SphereGeometry(.014,8,6),new THREE.MeshBasicMaterial({color:0xff2222,wireframe:true})));
+  ikMarker.add(new THREE.Mesh(new THREE.SphereGeometry(.022,8,6),new THREE.MeshBasicMaterial({color:0xff4444,wireframe:true,opacity:.3,transparent:true})));
+  ikMarker.visible=false;scene.add(ikMarker);
+
+  setupOrbit(canvas,camera);
+  window.addEventListener('resize',()=>{
+    const w=vp.clientWidth,h=vp.clientHeight;
+    camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);
+  });
+}
+
+function setupOrbit(canvas,cam){
+  let dn=false,rmb=false,px=0,py=0;
+  let theta=0.8,phi=0.55,r=1.1;
+  const tgt=V3(0.05,0.30,0);const pan=new THREE.Vector3();
+  function sync(){
+    cam.position.set(
+      tgt.x+pan.x+r*Math.sin(phi)*Math.sin(theta),
+      tgt.y+pan.y+r*Math.cos(phi),
+      tgt.z+pan.z+r*Math.sin(phi)*Math.cos(theta)
+    );cam.lookAt(tgt.x+pan.x,tgt.y+pan.y,tgt.z+pan.z);
+  }
+  sync();window._setCamera=(t,p,radius)=>{theta=t;phi=p;r=radius;sync();};
+  canvas.addEventListener('mousedown',e=>{if(e.button===2){rmb=true;e.preventDefault();}else dn=true;px=e.clientX;py=e.clientY;});
+  window.addEventListener('mouseup',()=>{dn=false;rmb=false;});
+  window.addEventListener('mousemove',e=>{
+    if(!dn&&!rmb)return;
+    const dx=(e.clientX-px)*.006,dy=(e.clientY-py)*.006;
+    if(rmb){pan.x-=dx*.2;pan.y+=dy*.2;}else{theta-=dx;phi=Math.max(.05,Math.min(Math.PI-.05,phi+dy));}
+    px=e.clientX;py=e.clientY;sync();
+  });
+  canvas.addEventListener('wheel',e=>{r=Math.max(.1,Math.min(4,r+e.deltaY*.001));sync();},{passive:true});
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
+let robotRoot;
+function buildLinkNodes(){
+  robotRoot=new THREE.Group();robotRoot.rotation.x=-Math.PI/2;scene.add(robotRoot);
+  ALL_STL.forEach(name=>{
+    const node=new THREE.Object3D();node.name=name;
+    const sph=new THREE.Mesh(
+      new THREE.SphereGeometry(0.012,10,8),
+      new THREE.MeshStandardMaterial({color:0x00aacc,emissive:0x002233,roughness:.3,metalness:.9})
+    );sph.name='__jsph';node.add(sph);robotRoot.add(node);
+    linkNodes[name]=node;stlMeshes[name]=null;
+  });
+}
+
+const _pos=new THREE.Vector3(),_q=new THREE.Quaternion(),_s=new THREE.Vector3();
+function applyFK(){
+  const{pos:eeP_urdf,q:eeQ_urdf,mats}=fkEE(angles);
+  LINK_ORDER.forEach((name,i)=>{
+    const nd=linkNodes[name];if(!nd)return;
+    mats[i].decompose(_pos,_q,_s);nd.position.copy(_pos);nd.quaternion.copy(_q);
+  });
+  const[W7,W8]=fingerMats(mats[7],gOpenMM);
+  [W7,W8].forEach((wm,fi)=>{
+    const nd=linkNodes[FINGER_LINKS[fi]];if(!nd)return;
+    wm.decompose(_pos,_q,_s);nd.position.copy(_pos);nd.quaternion.copy(_q);
+  });
+  const eeP=new THREE.Vector3(eeP_urdf.x,eeP_urdf.z,-eeP_urdf.y);
+  eeMarker.position.copy(eeP);
+  return{eeP,eeQ:eeQ_urdf};
+}
+
+const TMAX=250;const trailPts=[];let trailLine=null;
+function updateTrail(pt){
+  trailPts.push(pt.clone());if(trailPts.length>TMAX)trailPts.shift();
+  if(trailLine){scene.remove(trailLine);trailLine.geometry.dispose();}
+  if(trailPts.length<2)return;
+  const g=new THREE.BufferGeometry().setFromPoints(trailPts);
+  trailLine=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x4080ff,opacity:.5,transparent:true}));
+  scene.add(trailLine);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  STL PARSER + CDN LOADER
+// ═══════════════════════════════════════════════════════════════════
+function parseSTL(buf){
+  const dv=new DataView(buf);let bin=false;
+  try{const n=dv.getUint32(80,true);if(n>0&&buf.byteLength===80+4+n*50)bin=true;}catch(_){}
+  if(bin){
+    const n=dv.getUint32(80,true);const pos=new Float32Array(n*9),nor=new Float32Array(n*9);let o=84;
+    for(let f=0;f<n;f++){
+      const nx=dv.getFloat32(o,true),ny=dv.getFloat32(o+4,true),nz=dv.getFloat32(o+8,true);o+=12;
+      for(let v=0;v<3;v++){const vi=f*9+v*3;pos[vi]=dv.getFloat32(o,true);pos[vi+1]=dv.getFloat32(o+4,true);pos[vi+2]=dv.getFloat32(o+8,true);o+=12;nor[vi]=nx;nor[vi+1]=ny;nor[vi+2]=nz;}
+      o+=2;
+    }
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));return g;
+  }else{
+    const txt=new TextDecoder().decode(buf);const pos=[],nor=[];
+    const nRe=/facet normal\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)/g;
+    const vRe=/vertex\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)/g;
+    const ns=[];let m;
+    while((m=nRe.exec(txt))!==null)ns.push([+m[1],+m[2],+m[3]]);
+    let vi=0;while((m=vRe.exec(txt))!==null){pos.push(+m[1],+m[2],+m[3]);const n=ns[Math.floor(vi/3)]||[0,1,0];nor.push(...n);vi++;}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nor),3));return g;
+  }
+}
+const STL_MAT={color:0x2a3d5e,roughness:0.38,metalness:0.82};
+const STL_SP={link6:{color:0x354a66},gripper_base:{color:0x382460},link7:{color:0x443070},link8:{color:0x443070}};
+function makeSTLMat(name){return new THREE.MeshStandardMaterial({...(STL_SP[name]||STL_MAT),...(STL_SP[name]?{roughness:.3,metalness:.85}:{})})}
+
+function attachSTL(name,buf){
+  const geo=parseSTL(buf);
+  const bb=new THREE.Box3().setFromBufferAttribute(geo.attributes.position);
+  const sz=new THREE.Vector3();bb.getSize(sz);
+  if(Math.max(sz.x,sz.y,sz.z)>2.0)geo.scale(0.001,0.001,0.001);
+  geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,makeSTLMat(name));
+  mesh.name='__stl';mesh.castShadow=true;mesh.receiveShadow=true;
+  const node=linkNodes[name];
+  const old=node.getObjectByName('__stl');
+  if(old){node.remove(old);old.geometry.dispose();old.material.dispose();}
+  node.add(mesh);stlMeshes[name]=mesh;
+  const jsph=node.getObjectByName('__jsph');if(jsph)jsph.visible=false;
+}
+
+async function loadAllMeshes(){
+  tl(`Loading ${ALL_STL.length} mesh files from GitHub CDN...`);
+  let ok=0;
+  
+  for(const name of ALL_STL){
+    try{
+      const res=await fetch(CDN_BASE+name+'.STL');
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      attachSTL(name,await res.arrayBuffer());
+      ok++;
+      tl(`Mesh loaded: ${name} (${ok}/${ALL_STL.length})`);
+    }catch(e){
+      tl(`Mesh FAIL: ${name} - ${e.message}`);
+    }
+  }
+  if(ok===0)tl(`⚠ No meshes loaded. Simulator will work but visualization disabled.`);
+  else tl(`Mesh data ready - ${ok}/${ALL_STL.length} links`);
+}
+
+function handleFiles(files){
+  const arr=Array.from(files).filter(f=>/\.stl$/i.test(f.name));
+  arr.forEach(file=>{
+    let s=file.name.toLowerCase().replace(/\.stl$/i,'');
+    const sorted=[...ALL_STL].sort((a,b)=>b.length-a.length);
+    const linkName=ALL_STL.includes(s)?s:sorted.find(ln=>s.endsWith(ln)||s.includes(ln));
+    if(!linkName){tl(`Cannot identify link: ${file.name}`);return;}
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{attachSTL(linkName,ev.target.result);tl(`Imported: ${file.name} -> ${linkName}`);}
+      catch(e){tl(`Import error: ${e.message}`);}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  JOINT SLIDERS + SIDEBAR
+// ═══════════════════════════════════════════════════════════════════
+function buildJointSliders(){
+  const c=document.getElementById('joint-sliders');c.innerHTML='';
+  JOINTS.slice(0,6).forEach(({n,lo,hi},i)=>{
+    const pct=((HOME[i]-lo)/(hi-lo)*100).toFixed(1);
+    const row=document.createElement('div');row.className='jrow';
+    row.innerHTML=`
+      <span class="jlbl">${n}</span>
+      <div class="jsl-wrap">
+        <input type="range" class="jsl" id="jsl-${i}"
+          min="${lo}" max="${hi}" step="0.005" value="${HOME[i]}"
+          style="background:linear-gradient(to right,var(--acc) ${pct}%,#3c3c3c ${pct}%)">
+      </div>
+      <span class="jval" id="jval-${i}">${(HOME[i]*180/Math.PI).toFixed(1)} deg</span>
+      <div class="jspin">
+        <div class="jsp" data-i="${i}" data-d="1">&#9650;</div>
+        <div class="jsp" data-i="${i}" data-d="-1">&#9660;</div>
+      </div>
+    `;
+    c.appendChild(row);
+  });
+  // Slider events
+  c.querySelectorAll('.jsl').forEach(sl=>{
+    sl.addEventListener('input',()=>{
+      const i=+sl.id.replace('jsl-','');
+      angles[i]=+sl.value;
+      const vEl=document.getElementById(`jval-${i}`);
+      if(vEl)vEl.textContent=(angles[i]*180/Math.PI).toFixed(1)+' deg';
+      const lo=JOINTS[i].lo,hi=JOINTS[i].hi;
+      const pct=((+sl.value-lo)/(hi-lo)*100);
+      sl.style.background=`linear-gradient(to right,var(--acc) ${pct}%,#3c3c3c ${pct}%)`;
+      manual=true;ctrl=null;
+      document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.remove('act'));
+    });
+  });
+  // Spinner events
+  c.querySelectorAll('.jsp').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const i=+btn.dataset.i,dir=+btn.dataset.d;
+      const sl=document.getElementById(`jsl-${i}`);
+      const step=2*Math.PI/180; // 2 deg per click
+      angles[i]=Math.max(JOINTS[i].lo,Math.min(JOINTS[i].hi,angles[i]+dir*step));
+      sl.value=angles[i];
+      const lo=JOINTS[i].lo,hi=JOINTS[i].hi;
+      const pct=((angles[i]-lo)/(hi-lo)*100);
+      sl.style.background=`linear-gradient(to right,var(--acc) ${pct}%,#3c3c3c ${pct}%)`;
+      document.getElementById(`jval-${i}`).textContent=(angles[i]*180/Math.PI).toFixed(1)+' deg';
+      manual=true;ctrl=null;
+      document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.remove('act'));
+    });
+  });
+}
+
+function syncJointSliders(){
+  if(manual)return;
+  JOINTS.slice(0,6).forEach(({lo,hi},i)=>{
+    const sl=document.getElementById(`jsl-${i}`);
+    const vEl=document.getElementById(`jval-${i}`);
+    if(!sl||!vEl)return;
+    sl.value=angles[i];
+    vEl.textContent=(angles[i]*180/Math.PI).toFixed(1)+' deg';
+    const pct=((angles[i]-lo)/(hi-lo)*100);
+    sl.style.background=`linear-gradient(to right,var(--acc) ${pct}%,#3c3c3c ${pct}%)`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONSOLE / TERMINAL
+// ═══════════════════════════════════════════════════════════════════
+function pad(n){return String(n).padStart(2,'0')}
+let logCount=0;
+
+function tl(msg,color){
+  const el=document.getElementById('tlog');
+  const now=new Date();
+  const ts=`[${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}]`;
+  const d=document.createElement('div');
+  const c=color||'#4ccc4c';
+  d.innerHTML=`<span style="color:#4ccc4c">${ts}</span> <span style="color:${c}">${msg}</span>`;
+  el.appendChild(d);
+  if(el.children.length>300)el.removeChild(el.firstChild);
+  el.scrollTop=el.scrollHeight;
+  logCount++;
+  const badge=document.getElementById('log-badge');
+  if(badge)badge.textContent=Math.min(logCount,99);
+}
+
+// Terminal commands (same logic as before)
+const JointMap={A:0,B:1,C:2,D:3,E:4,F:5};
+function termCmd(raw){
+  const cmd=raw.trim().toUpperCase();
+  if(!cmd)return;
+  tl(`> ${raw}`,'#e8a020');
+
+  if(cmd==='E'){eStopped=true;ctrl=null;manual=true;tl('E-STOP: all motion halted. Type R to resume.','#f44336');return;}
+  if(eStopped&&cmd!=='R'){tl('E-stop active. Type R to resume.','#ff9800');return;}
+  if(cmd==='R'){eStopped=false;simPaused=false;tl('Resumed.','#4caf50');return;}
+  if(cmd==='Z'){simHome();return;}
+  if(cmd==='P'){const{pos}=fkEE(angles);tl(`EE pos: X=${pos.x.toFixed(4)} Y=${pos.y.toFixed(4)} Z=${pos.z.toFixed(4)} m`,'#e8a020');return;}
+  if(cmd==='W'){addWaypoint();return;}
+  if(cmd==='L'){if(!waypoints.length){tl('No waypoints');return;}waypoints.forEach((wp,i)=>tl(`  WP${i+1}: X=${wp.pos.x.toFixed(3)} Y=${wp.pos.y.toFixed(3)} Z=${wp.pos.z.toFixed(3)}`,'#e8a020'));return;}
+  if(cmd==='CW'){clearWaypoints();return;}
+  if(cmd==='M'){tl('Controllers: HOME | SINE | CIRCLE | DEMO | TRAJ | TRACK');tl('Type MODE SINE etc. to switch');return;}
+  if(cmd.startsWith('MODE ')){const m=cmd.slice(5).toLowerCase();if(CTRLS[m])setCtrl(m);else tl(`Unknown controller: ${m}`,'#f44336');return;}
+  const vm=cmd.match(/^V(\d+)$/);
+  if(vm){const s=parseInt(vm[1])/10;speed=Math.max(0.1,Math.min(3,s));document.getElementById('spd').value=speed;document.getElementById('spd-out').textContent=speed.toFixed(1)+'x';tl(`Speed -> ${speed.toFixed(1)}x`,'#4caf50');return;}
+  if(cmd==='S'){
+    const{pos}=fkEE(angles);
+    csvLog.push([simT.toFixed(2),...angles.map(a=>(a*180/Math.PI).toFixed(2)),gOpenMM.toFixed(1),pos.x.toFixed(4),pos.y.toFixed(4),pos.z.toFixed(4)].join(','));
+    tl(`Row ${csvLog.length} logged`,'#4caf50');
+    if(csvLog.length>=2){const hdr='time,J1,J2,J3,J4,J5,J6,Grip_mm,EE_X,EE_Y,EE_Z';const blob=new Blob([[hdr,...csvLog].join('\n')],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='piper_log.csv';a.click();tl('CSV downloaded','#4caf50');}
+    return;
+  }
+  if(cmd==='Q'){eStopped=true;simPaused=true;tl('Session ended. Reload to restart.','#666');return;}
+  const jm=cmd.match(/^([A-F])([PN])(\d+)$/);
+  if(jm){
+    const ji=JointMap[jm[1]],sign=jm[2]==='P'?1:-1,deg=parseInt(jm[3]);
+    const newA=Math.max(JOINTS[ji].lo,Math.min(JOINTS[ji].hi,angles[ji]+sign*deg*Math.PI/180));
+    const actual=(newA-angles[ji])*180/Math.PI;
+    angles[ji]=newA;manual=true;ctrl=null;
+    document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.remove('act'));
+    tl(`J${ji+1}: ${actual>=0?'+':''}${actual.toFixed(1)} deg -> ${(newA*180/Math.PI).toFixed(1)} deg`,'#e8a020');
+    return;
+  }
+  const gom=cmd.match(/^G(\d+(?:\.\d+)?)$/);
+  if(gom){gOpenMM=Math.min(35,gOpenMM+parseFloat(gom[1]));const pct=gOpenMM/35*100;document.getElementById('g-sl').value=pct;updateGripperUI(pct);tl(`Gripper open -> ${gOpenMM.toFixed(1)} mm`,'#4caf50');return;}
+  const gcm=cmd.match(/^F(\d+(?:\.\d+)?)$/);
+  if(gcm){gOpenMM=Math.max(0,gOpenMM-parseFloat(gcm[1]));const pct=gOpenMM/35*100;document.getElementById('g-sl').value=pct;updateGripperUI(pct);tl(`Gripper close -> ${gOpenMM.toFixed(1)} mm`,'#4caf50');return;}
+  if(cmd==='H'||cmd==='HELP'){
+    ['AP10/AN10  Joint A +/- 10 deg (A-F = J1-J6)','G10/F10    Gripper open/close mm','W/L/CW     Add/list/clear waypoints','P          Print EE position','V5         Speed = 0.5x','E/R        E-stop / Resume','Z          Home','S          Save CSV','MODE SINE  Switch controller','H          Help'].forEach(l=>tl(l));
+    return;
+  }
+  tl(`Unknown: ${cmd} - type H for help`,'#f44336');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  IK TESTS
+// ═══════════════════════════════════════════════════════════════════
+function runIKTests(){
+  const{iters,tolM,alpha}=getIKParams();
+  const tests=[{p:[.30,.00,.35],l:'Front'},{p:[.25,.15,.28],l:'Right'},{p:[.25,-.15,.28],l:'Left'},{p:[.20,.00,.42],l:'High'},{p:[.30,.00,.15],l:'Low'},{p:[.18,.18,.18],l:'Diag'}];
+  tl('=== IK SELF-TEST ===');
+  tests.forEach(({p,l})=>{
+    const{ok,err}=solveIK(p,iters,tolM,alpha);
+    tl(`  ${l.padEnd(8)} ${ok?'PASS':'FAIL'} err=${err.toFixed(4)}m`,ok?'#4caf50':'#f44336');
+  });
+  tl('===================');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SIMULATION LOOP
+// ═══════════════════════════════════════════════════════════════════
+const DT=1/120;
+let lastTelLog=0;
+let dom_t1,dom_t2,dom_t3,dom_t4,dom_t5,dom_t6,dom_ex,dom_ey,dom_ez,dom_roll,dom_pitch,dom_yaw,dom_time;
+
+function cacheDom(){
+  dom_t1=document.getElementById('t-j1');dom_t2=document.getElementById('t-j2');
+  dom_t3=document.getElementById('t-j3');dom_t4=document.getElementById('t-j4');
+  dom_t5=document.getElementById('t-j5');dom_t6=document.getElementById('t-j6');
+  dom_ex=document.getElementById('t-ex');dom_ey=document.getElementById('t-ey');
+  dom_ez=document.getElementById('t-ez');dom_roll=document.getElementById('t-roll');
+  dom_pitch=document.getElementById('t-pitch');dom_yaw=document.getElementById('t-yaw');
+  dom_time=document.getElementById('t-time');
+}
+
+function sgn(v){return(v>=0?'+':'')+v}
+
+function loop(){
+  requestAnimationFrame(loop);
+
+  speed=+document.getElementById('spd').value;
+  gOpenMM=(+document.getElementById('g-sl').value/100)*35;
+
+  if(!eStopped&&!manual&&ctrl&&!simPaused){
+    const desired=ctrl.tick(simT*speed);
+    if(desired)angles=desired;
+    simT+=DT;simStep++;
+  }
+
+  const{eeP,eeQ}=applyFK();
+  updateTrail(eeP);
+
+  const eu=new THREE.Euler().setFromQuaternion(eeQ,'XYZ');
+  const r2d=v=>v*180/Math.PI;
+
+  // Telemetry update
+  if(dom_t1){
+    dom_t1.textContent=sgn((angles[0]*180/Math.PI).toFixed(1));
+    dom_t2.textContent=sgn((angles[1]*180/Math.PI).toFixed(1));
+    dom_t3.textContent=sgn((angles[2]*180/Math.PI).toFixed(1));
+    dom_t4.textContent=sgn((angles[3]*180/Math.PI).toFixed(1));
+    dom_t5.textContent=sgn((angles[4]*180/Math.PI).toFixed(1));
+    dom_t6.textContent=sgn((angles[5]*180/Math.PI).toFixed(1));
+    dom_ex.textContent=eeP.x.toFixed(4);
+    dom_ey.textContent=eeP.y.toFixed(4);
+    dom_ez.textContent=eeP.z.toFixed(4);
+    dom_roll.textContent=sgn(r2d(eu.x).toFixed(1));
+    dom_pitch.textContent=sgn(r2d(eu.y).toFixed(1));
+    dom_yaw.textContent=sgn(r2d(eu.z).toFixed(1));
+    dom_time.textContent=simT.toFixed(2)+' s';
+  }
+
+  syncJointSliders();
+
+  // Periodic console EE log
+  if(simStep>0&&simStep-lastTelLog>=120){
+    lastTelLog=simStep;
+    const jStr=angles.map(a=>`${sgn((a*180/Math.PI).toFixed(1))}`).join(' ');
+    tl(`t= ${simT.toFixed(2)}s EE [${sgn(eeP.x.toFixed(3))} ${sgn(eeP.y.toFixed(3))} ${sgn(eeP.z.toFixed(3))}] J [${jStr}]`,'#e8a020');
+  }
+
+  ikMarker.rotation.y=simT;
+  renderer.render(scene,camera);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UI WIRING
+// ═══════════════════════════════════════════════════════════════════
+function wireUI(){
+  // Tabs
+  document.querySelectorAll('.stab:not(.stab-more)').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      const id=tab.dataset.t;
+      document.querySelectorAll('.stab').forEach(t=>t.classList.toggle('act',t.dataset.t===id));
+      document.querySelectorAll('.spane').forEach(p=>p.classList.toggle('act',p.dataset.p===id));
+    });
+  });
+
+  // Speed slider (toolbar)
+  document.getElementById('spd').addEventListener('input',e=>{
+    const v=(+e.target.value).toFixed(1);
+    document.getElementById('spd-out').textContent=v+'x';
+    const pct=((+e.target.value-.1)/(3-.1)*100);
+    e.target.style.background=`linear-gradient(to right,var(--acc) ${pct}%,#444 ${pct}%)`;
+    const s2=document.getElementById('spd2');if(s2)s2.value=e.target.value;
+    const s2o=document.getElementById('spd2-out');if(s2o)s2o.textContent=v+'x';
+  });
+
+  // Speed2 (controller tab) syncs to main
+  const spd2=document.getElementById('spd2');
+  if(spd2)spd2.addEventListener('input',e=>{
+    const v=(+e.target.value).toFixed(1);
+    document.getElementById('spd').value=e.target.value;
+    document.getElementById('spd-out').textContent=v+'x';
+    document.getElementById('spd2-out').textContent=v+'x';
+    const pct=((+e.target.value-.1)/(3-.1)*100);
+    document.getElementById('spd').style.background=`linear-gradient(to right,var(--acc) ${pct}%,#444 ${pct}%)`;
+  });
+
+  // Gripper slider
+  document.getElementById('g-sl').addEventListener('input',e=>{
+    gOpenMM=(+e.target.value/100)*35;
+    updateGripperUI(+e.target.value);
+  });
+
+  // IK sliders
+  ['x','y','z'].forEach(a=>{
+    const sl=document.getElementById(`ik-${a}`),out=document.getElementById(`ik-${a}-v`);
+    if(sl&&out)sl.addEventListener('input',()=>out.textContent=(+sl.value).toFixed(3));
+  });
+  const iitrs=document.getElementById('ik-iters');if(iitrs)iitrs.addEventListener('input',e=>document.getElementById('ik-iters-v').textContent=e.target.value);
+  const itol=document.getElementById('ik-tol');if(itol)itol.addEventListener('input',e=>document.getElementById('ik-tol-v').textContent=(+e.target.value).toFixed(1));
+  const ialpha=document.getElementById('ik-alpha');if(ialpha)ialpha.addEventListener('input',e=>document.getElementById('ik-alpha-v').textContent=(+e.target.value).toFixed(2));
+
+  // IK solve
+  const ikgo=document.getElementById('ik-go');
+  if(ikgo)ikgo.addEventListener('click',()=>{
+    const tx=+document.getElementById('ik-x').value,ty=+document.getElementById('ik-y').value,tz=+document.getElementById('ik-z').value;
+    const{iters,tolM,alpha}=getIKParams();
+    const{ang,ok,err}=solveIK([tx,ty,tz],iters,tolM,alpha);
+    ikOk=ok;ikErr=err;angles=[...ang];manual=true;ctrl=null;
+    document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.remove('act'));
+    if(ikMarker){ikMarker.position.set(tx,tz,-ty);ikMarker.visible=true;}
+    document.getElementById('ik-res').innerHTML=`<strong style="color:${ok?'#4caf50':'#f44336'}">${ok?'SOLVED':'FAILED'}</strong> err=${err.toFixed(5)}m<br>tgt=[${[tx,ty,tz].map(v=>v.toFixed(3)).join(', ')}]`;
+    tl(`IK ${ok?'SOLVED':'FAILED'} [${[tx,ty,tz].map(v=>v.toFixed(3)).join(',')}] err=${err.toFixed(4)}m`,ok?'#4caf50':'#f44336');
+  });
+  const iktest=document.getElementById('ik-test');if(iktest)iktest.addEventListener('click',runIKTests);
+
+  // Controller buttons
+  document.querySelectorAll('.ctrl-btn[data-ctrl]').forEach(b=>{
+    b.addEventListener('click',()=>{setCtrl(b.dataset.ctrl);manual=false;});
+  });
+
+  // Import STL
+  document.getElementById('fi-inp').addEventListener('change',e=>{handleFiles(e.target.files);e.target.value='';});
+
+  // Console input
+  const ci=document.getElementById('con-input');
+  const cHist=[];let hIdx=-1;
+  if(ci)ci.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      const v=ci.value;if(v.trim())cHist.unshift(v);hIdx=-1;
+      termCmd(v);ci.value='';
+    }else if(e.key==='ArrowUp'){
+      if(hIdx<cHist.length-1){hIdx++;ci.value=cHist[hIdx];}e.preventDefault();
+    }else if(e.key==='ArrowDown'){
+      if(hIdx>0){hIdx--;ci.value=cHist[hIdx];}else{hIdx=-1;ci.value='';}e.preventDefault();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════
+function setLoad(msg,pct){
+  document.getElementById('lmsg').textContent=msg;
+  document.getElementById('lbar').style.width=pct+'%';
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const ov=document.getElementById('loading');
+  setLoad('Initialising renderer...',10);
+  setTimeout(async ()=>{
+    try{
+      setLoad('Building 3D scene...',20);
+      initScene();
+      setLoad('Creating URDF link nodes...',38);
+      buildLinkNodes();
+      setLoad('Building joint sliders...',52);
+      buildJointSliders();
+      setLoad('Wiring UI events...',66);
+      wireUI();cacheDom();
+      setLoad('Starting simulation...',78);
+      setCtrl('home');angles=[...HOME];applyFK();
+      setLoad('Running IK self-test...',88);
+      runIKTests();
+      setLoad('Ready',100);
+
+      setTimeout(()=>{
+        ov.style.display='none';
+        tl(`Robot loaded - ${JOINTS.length-1} joints | arm [0,1,2,3,4,5] | EE link ${JOINTS.length-1}`);
+        tl(`Mesh loader ready - CDN: github.com/ANANDHUAJITH/CDN`);
+        loop();
+        // Load meshes after UI is live
+        loadAllMeshes();
+      },220);
+    }catch(e){
+      document.getElementById('lmsg').textContent='ERROR: '+e.message;
+      console.error(e);
+    }
+  },80);
+});
+</script>
+</body>
+</html>
