@@ -1,5 +1,3 @@
-/** @type {import('next').NextConfig} */
-
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -12,34 +10,23 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https:",
-      "frame-src 'self'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; '),
-  },
+    ].join('; ')
+  }
 ]
 
-const basePath = process.env.PAGES_BASE_PATH ?? ''
+const basePath = process.env.PAGES_BASE_PATH || ''
 
-const nextConfig = {
+module.exports = {
   output: 'export',
   basePath,
   assetPrefix: basePath || undefined,
-  typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
-  compress: true,
-  poweredByHeader: false,
-  reactStrictMode: true,
-  experimental: { optimizeCss: true },
 
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
-  },
+  }
 }
-
-export default nextConfig
